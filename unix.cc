@@ -18,7 +18,14 @@
 #include <sys/param.h>
 #include <pthread.h>
 #include <asm/termbits.h> // Termios2
-#include <termios.h> // Termios
+
+// Define _TERMIOOS_H to avoid importing termios-struct.h as asm/termbits.h already contains a definition of the termios struct
+// however we still need functionality from termios.h
+#ifndef _TERMIOS_H
+#define _TERMIOS_H
+#endif
+#include <termios.h>
+
 #if defined(__linux__)
 # include <linux/serial.h>
 #endif
@@ -105,7 +112,7 @@ timespec_from_ms (const uint32_t millis)
   return time;
 }
 
-Serial::SerialImpl::SerialImpl (const string &port, unsigned long baudrate, bool termiosType,
+Serial::SerialImpl::SerialImpl (const string &port, unsigned long baudrate,
                                 bytesize_t bytesize,
                                 parity_t parity, stopbits_t stopbits,
                                 flowcontrol_t flowcontrol)
@@ -135,7 +142,6 @@ Serial::SerialImpl::open ()
   if (is_open_ == true) {
     throw SerialException ("Serial port already open.");
   }
-
   fd_ = ::open (port_.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
 
   if (fd_ == -1) {
@@ -164,24 +170,91 @@ Serial::SerialImpl::reconfigurePort ()
     THROW (IOException, "Invalid file descriptor, is the serial port open?");
   }
 
-  if (termiosType == 1) {
+
     struct termios2 tty;
 
     if (ioctl(fd_, TCGETS2, &tty) != 0) {
-
+      perror("Error getting serial settings.");
+      ::close(fd_);
     }
+
+    tty.c_cflag |= (CLOCAL | CREAD);
+    tty.c_lflag &= ~(ICANON | ECHO | ECHOE | ECHOK | ECHONL | ISIG | IEXTEN);
+    tty.c_oflag &= ~(OPOST | ONLCR | OCRNL);
+    tty.c_iflag &= ~(INLCR | IGNCR | ICRNL | IGNBRK);
+
+    // Bytesize 8
+    tty.c_cflag &= ~CSIZE;
+    tty.c_cflag |= CS8;
+
+    // Stopbits 1
+    tty.c_cflag &= ~CSTOPB;
+
+    // No parity
+    tty.c_iflag &= ~(INPCK | ISTRIP);
+    tty.c_cflag &= ~(PARENB | PARODD | CMSPAR);
+
+    if (flowcontrol_ == flowcontrol_none) {
+      xonxoff_ = false;
+      rtscts_ = false;
+    }
+    if (flowcontrol_ == flowcontrol_software) {
+      xonxoff_ = true;
+      rtscts_ = false;
+    }
+    if (flowcontrol_ == flowcontrol_hardware) {
+      xonxoff_ = false;
+      rtscts_ = true;
+    }
+#ifdef IXANY
+    if (xonxoff_)
+      tty.c_iflag |=  (IXON | IXOFF); //|IXANY)
+    else
+      tty.c_iflag &= (tcflag_t) ~(IXON | IXOFF | IXANY);
+#else
+    if (xonxoff_)
+      options.c_iflag |=  (IXON | IXOFF);
+    else
+      options.c_iflag &= (tcflag_t) ~(IXON | IXOFF);
+#endif
+    // rtscts
+#ifdef CRTSCTS
+    if (rtscts_)
+      tty.c_cflag |=  (CRTSCTS);
+    else
+      tty.c_cflag &= (unsigned long) ~(CRTSCTS);
+#elif defined CNEW_RTSCTS
+    if (rtscts_)
+      options.c_cflag |=  (CNEW_RTSCTS);
+    else
+      options.c_cflag &= (unsigned long) ~(CNEW_RTSCTS);
+#else
+#error "OS Support seems wrong."
+#endif
+
+    tty.c_cc[VMIN] = 0;
+    tty.c_cc[VTIME] = 0;
+
+
+
     tty.c_cflag &= ~CBAUD;
     tty.c_cflag |= BOTHER;
     tty.c_ispeed = baudrate_;
     tty.c_ospeed = baudrate_;
 
+
     if (ioctl(fd_, TCSETS2, &tty) != 0) {
       perror("Error setting serial settings.");
       ::close(fd_);
     }
-    return;
-  }
 
+
+
+
+
+
+
+  /*
   struct termios options; // The options for the file descriptor
   if (tcgetattr(fd_, &options) == -1) {
     THROW (IOException, "::tcgetattr");
@@ -428,8 +501,12 @@ Serial::SerialImpl::reconfigurePort ()
   options.c_cc[VTIME] = 0;
 
   // activate settings
-  ::tcsetattr (fd_, TCSANOW, &options);
-
+  //::tcsetattr (fd_, TCSANOW, &options); // termios
+  if (ioctl(fd_, TCSETS2, &options) != 0) { // termios2
+    perror("Error setting serial settings.");
+    ::close(fd_);
+  }
+  return;
   // apply custom baud rate, if any
   if (custom_baud == true) {
     // OS X support
@@ -474,7 +551,7 @@ Serial::SerialImpl::reconfigurePort ()
   // and not 1.5.
   if (stopbits_ == stopbits_one_point_five) {
     byte_time_ns_ += ((1.5 - stopbits_one_point_five) * bit_time_ns);
-  }
+  }*/
 }
 
 void
@@ -508,7 +585,7 @@ Serial::SerialImpl::available ()
   }
   int count = 0;
   if (-1 == ioctl (fd_, TIOCINQ, &count)) {
-      THROW (IOException, errno);
+    THROW (IOException, errno);
   } else {
       return static_cast<size_t> (count);
   }

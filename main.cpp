@@ -7,7 +7,7 @@
 #include <thread>
 #include <chrono>
 #include <iostream>
-#include "lidarDriver.hpp"
+#include "LidarDriver.hpp"
 #include "communication.hpp"
 #include "simple_socket/TCPSocket.hpp"
 #include <atomic>
@@ -15,6 +15,7 @@
 #include <thread>
 #include <iostream>
 #include <queue>
+#include "CameraStreamer.hpp"
 
 void sigpipeHandler(int signal) {
     std::cout << "Client disconnected" << std::endl;
@@ -22,6 +23,10 @@ void sigpipeHandler(int signal) {
 
 int main() {
     signal(SIGPIPE, sigpipeHandler);
+
+    CameraStreamer cameraStreamer(1, 640, 480, 60);
+	cameraStreamer.setClient("10.24.41.131", 8553);
+	cameraStreamer.start();
 
     Rover::Rover rover;
     rover.init();
@@ -32,7 +37,7 @@ int main() {
             if (rover.parser->sensorDataAvailable()) {
                 std::mutex m;
                 std::unique_lock<std::mutex> lock(m);
-                const float* data = rover.getState();
+                auto data = rover.getState();
                 lock.unlock();
 
                 std::vector<uint8_t> packet{};
@@ -49,7 +54,7 @@ int main() {
     std::queue<uint8_t> commands;
     std::thread updateThread([&rover, &commands] {
         float heading = 0.0f;
-        float speed = 0.2f;
+        float speed = 0.4f;
         while (true) {
             if (commands.size() > 0) {
                 std::mutex m;
@@ -63,11 +68,11 @@ int main() {
                     rover.driveWithYaw(speed, heading);
                 }
                 if (command == 0x02) {
-                    heading += speed*0.5f;
+                    heading += 3;
                     if (rover.driving) rover.driveWithYaw(speed, heading);
                 }
                 if (command == 0x03) {
-                    heading -= speed*0.5f;
+                    heading -= 3;
                     if (rover.driving) rover.driveWithYaw(speed, heading);
                 }
                 if (command == 0x04) {
@@ -85,6 +90,7 @@ int main() {
     LidarDriver lidar;
     TCPServer server(9998);
     std::atomic<bool> stopper(false);
+
     auto connection = server.accept();
     std::cout << "Client connected" << std::endl;
 
@@ -114,6 +120,7 @@ int main() {
     std::thread commandReceiverThread([&commands] {
         TCPClientContext commandClient;
         std::string laptopIP("10.24.41.131");
+        std::string hotspotIP("10.42.0.143");
         auto commandConnection = commandClient.connect(laptopIP, 5853);
         std::cout << "Connected to command server." << std::endl;
         float heading = 0.0f;

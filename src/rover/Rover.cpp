@@ -157,11 +157,12 @@ namespace Rover {
         state[10] = locator.y;
         state[11] = velocity.x;
         state[12] = velocity.y;
+
         return state;
     }
 
     void Rover::update() {
-        if (device->hasNewResponse()) {
+        if (device->hasUnreadResponse()) {
             auto msg = device->collectResponse();
             if (msg == nullptr) return;
             //std::cout << "New response: DID: " << static_cast<int>(msg->header->did) << "  CID: " << static_cast<int>(msg->header->cid) << std::endl;

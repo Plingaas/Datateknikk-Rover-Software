@@ -1,10 +1,53 @@
+set(publicHeaderDir ${PROJECT_SOURCE_DIR}/include)
 
-add_library(rover Rover.cpp RoverSerial.cpp RoverSerialMessage.cpp RoverSerialParser.cpp RoverSerialHeader.cpp RoverSerialSensorStreamService.cpp RoverSocketStreamer.cpp)
-add_library(lidar lidarDriver.cpp communication.cpp)
+set(publicHeaders
+    "rover/Rover.hpp"
+    "lidar/Lidar.hpp"
+    "camera/CameraStreamer.hpp"
+)
 
-target_include_directories(rover PUBLIC "${CMAKE_SOURCE_DIR}/include")
-target_include_directories(lidar PUBLIC "${CMAKE_SOURCE_DIR}/include")
+set(privateHeaders
+    "rover/RoverSerial.hpp"
+    "rover/RoverSerialHeader.hpp"
+    "rover/RoverSerialMessage.hpp"
+    "rover/RoverSerialParser.hpp"
+    "rover/RoverSerialSensorStreamService.hpp"
+    "rover/RoverStateStreamer.hpp"
+    "rover/RoverSensorData.hpp"
+    "rover/SerialEnum.hpp"
+    "lidar/LidarDriver.hpp"
+    "lidar/communication.hpp"
+    "tools/TCPStreamer.hpp"
+)
 
+set(sources
+    "rover/Rover.cpp"
+    "rover/RoverSerial.cpp"
+    "rover/RoverSerialHeader.cpp"
+    "rover/RoverSerialMessage.cpp"
+    "rover/RoverStateStreamer.cpp"
+    "rover/RoverSerialParser.cpp"
+    "rover/RoverSerialSensorStreamService.cpp"
+    "lidar/Lidar.cpp"
+    "lidar/LidarDriver.cpp"
+    "lidar/communication.cpp"
+    "camera/CameraStreamer.cpp"
+    "tools/TCPStreamer.cpp"
+)
+
+set(publicHeadersFull)
+foreach (header IN LISTS publicHeaders)
+    list(APPEND publicHeadersFull "${publicHeaderDir}/${header}")
+endforeach ()
+
+set(privateHeadersFull)
+foreach (header IN LISTS privateHeaders)
+    list(APPEND privateHeadersFull "${publicHeaderDir}/${header}")
+endforeach ()
+
+# OPENCV and CUDA
+find_package(OpenCV REQUIRED)
+find_package(CUDA REQUIRED)
 
 include(FetchContent)
 set(SIMPLE_SOCKET_BUILD_TESTS OFF)
@@ -24,6 +67,6 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(serial)
 
-
-target_link_libraries(rover PUBLIC serial simple_socket)
-target_link_libraries(lidar PUBLIC simple_socket serial)
+add_library(SpheroRVRExtension ${sources} ${publicHeadersFull} ${privateHeadersFull})
+target_include_directories(SpheroRVRExtension PUBLIC ${publicHeaderDir}/rover ${publicHeaderDir}/lidar ${publicHeaderDir}/camera ${publicHeaderDir}/tools)
+target_link_libraries(SpheroRVRExtension PUBLIC serial simple_socket ${OpenCV_LIBS} ${CUDA_LIBRARIES})

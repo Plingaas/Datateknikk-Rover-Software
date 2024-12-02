@@ -1,18 +1,19 @@
 //
 // Created by peter on 04.11.24.
 //
-#include "RoverStateStreamer.hpp"
+#include "Lidar.hpp"
+#include <signal.h>
 #include <thread>
 #include <chrono>
+#include "CameraStreamer.hpp"
 int main() {
 
-  Rover::StateStreamer streamer;
+    CameraStreamer cameraStreamer(1, 640, 480, 60);
+    cameraStreamer.setClient("10.24.41.131", 8553);
+    cameraStreamer.start();
 
-  std::vector<uint8_t> data = {'H', 'e', 'l', 'l', 'o', ' ', 'W', 'o', 'r', 'l', 'd'};
-  streamer.addPacket(data);
-
-  while (true) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-  }
-
+    Lidar lidar;
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    }
 }

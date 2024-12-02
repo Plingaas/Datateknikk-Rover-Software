@@ -53,13 +53,6 @@ namespace Rover {
     /*
      Reads available data in the input buffer and parses the data.
      */
-    void printbufffer(std::vector<uint8_t> buffer) {
-        std::ostringstream oss;
-        for (uint8_t b : buffer) {
-            oss << "\\x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(b);
-        }
-        std::cout << oss.str() << std::endl;
-    }
     void RoverSerial::read() {
         uint16_t bytesAvailable = device->available();
         if (bytesAvailable > 0) {

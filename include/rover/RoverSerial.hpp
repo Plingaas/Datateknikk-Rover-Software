@@ -41,7 +41,7 @@ namespace Rover {
         void close();
         uint16_t available() { return device->available();};
         [[nodiscard]] std::shared_ptr<SerialMessage> collectResponse();
-        bool hasNewResponse() {return responseQueue.size() > 0;};
+        bool hasUnreadResponse() {return !responseQueue.empty();};
         void sendCommand(const std::string& key,
             const std::vector<VariantType> &inputs = std::vector<VariantType>(),
             const std::vector<VariantType> &outputs = std::vector<VariantType>());

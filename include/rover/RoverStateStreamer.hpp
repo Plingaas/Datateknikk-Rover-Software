@@ -29,11 +29,9 @@ namespace Rover {
 
     public:
         StateStreamer(int port);
-        void handleConnection(std::unique_ptr<SimpleConnection> conn);
-
         void addPacket(std::vector<uint8_t>& packet) {outPackets.push(packet);};
-        void listen();
-        void send();
+        bool sendPacket();
+        void stream();
 
     };
 };

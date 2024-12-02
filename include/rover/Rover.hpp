@@ -39,7 +39,6 @@ namespace Rover {
         static std::shared_ptr<Rover> create();
 
         Rover();
-        void initialize();
 
         void init();
         void sleep();
