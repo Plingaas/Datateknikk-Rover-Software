@@ -14,7 +14,7 @@ TCPStreamer::TCPStreamer(uint16_t port_, bool verbose_) {
 
 void TCPStreamer::waitForConnection() {
     std::thread connection_thread([this] {
-        if (verbose) std::cout << "Listening for client connection." << std::endl;
+        if (verbose) printMessage("Listening for client connection.");
         client = server->accept();
 
         std::lock_guard<std::mutex> lock(m);
@@ -38,7 +38,7 @@ void TCPStreamer::startStreaming() {
                 if (connected) continue;
 
                 time_of_disconnect = getCurrentTime();
-                if (verbose) std::cout << "Client disconnected... Attempting to reconnect." << std::endl;
+                if (verbose) printMessage("Client disconnected... Attempting to reconnect.");
                 waitForConnection(); // Attempt to reconnect
 
                 // Wait for reconnection
@@ -50,7 +50,7 @@ void TCPStreamer::startStreaming() {
                             disconnect_handler();
                         }
                         reconnected = false;
-                        if (verbose) std::cout << "Failed to reconnect." << std::endl;
+                        if (verbose) printMessage("Failed to reconnect.");
                         break;
                     }
                 }
@@ -85,4 +85,8 @@ long TCPStreamer::getCurrentTime() {
 
 void TCPStreamer::close() {
 
+}
+
+void TCPStreamer::printMessage(std::string message) {
+    std::cout << "(" << name << "): " << message << std::endl;
 }

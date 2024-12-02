@@ -2,54 +2,32 @@
 // Created by peter on 29.10.24.
 //
 #include "Rover.hpp"
-#include "RoverStateStreamer.hpp"
-
 #include <thread>
 #include <chrono>
 #include <iostream>
-#include "LidarDriver.hpp"
+#include "Lidar.hpp"
 #include "communication.hpp"
 #include "simple_socket/TCPSocket.hpp"
-#include <atomic>
-#include <condition_variable>
-#include <thread>
-#include <iostream>
 #include <queue>
 #include "CameraStreamer.hpp"
 
-void sigpipeHandler(int signal) {
-    std::cout << "Client disconnected" << std::endl;
-}
-
 int main() {
-    signal(SIGPIPE, sigpipeHandler);
-
     CameraStreamer cameraStreamer(1, 640, 480, 60);
-	cameraStreamer.setClient("10.24.41.131", 8553);
-	cameraStreamer.start();
+    cameraStreamer.setClient("10.24.41.131", 8553);
+    cameraStreamer.start();
 
-    Rover::Rover rover;
+    uint16_t roverTCPPort = 9996;
+    Rover::Rover rover(roverTCPPort);
     rover.init();
+    rover.startSerialSensorStream(33);
+    rover.setServerTimeout(5000);
+    rover.startTCPServer();
 
-    std::thread roverThread([&rover] {
-        rover.startSensorStream(33);
-        while (true) {
-            if (rover.parser->sensorDataAvailable()) {
-                std::mutex m;
-                std::unique_lock<std::mutex> lock(m);
-                auto data = rover.getState();
-                lock.unlock();
-
-                std::vector<uint8_t> packet{};
-                for (int i = 12; i >= 0; i--) {
-                    uint8_t temp[sizeof(float)];
-                    std::memcpy(temp, &data[i], sizeof(float));
-                    packet.insert(packet.begin(), temp, temp + sizeof(float));
-                }
-                rover.stateStreamer->addPacket(packet);
-            }
-        }
-    });
+    uint16_t lidarTCPPort = 9998;
+    Lidar lidar(lidarTCPPort);
+    lidar.init();
+    lidar.setServerTimeout(5000);
+    lidar.startTCPServer();
 
     std::queue<uint8_t> commands;
     std::thread updateThread([&rover, &commands] {
@@ -80,42 +58,12 @@ int main() {
                     rover.driveWithYaw(speed, heading);
                 }
                 if (command == 0x05) {
-                    rover.stop();
+                    rover.stopDriving();
                 }
             }
-            rover.update();
         }
     });
 
-    LidarDriver lidar;
-    TCPServer server(9998);
-    std::atomic<bool> stopper(false);
-
-    auto connection = server.accept();
-    std::cout << "Client connected" << std::endl;
-
-    Communication com;
-    std::vector<std::pair<double,double>> coordinates;
-    std::mutex coordinates_mutex;
-
-    lidar.startMotorHalf();
-    std::this_thread::sleep_for(std::chrono::seconds(2));
-    std::queue<std::vector<std::pair<double,double>>> coordinates_queue;
-
-    std::thread scanThread(
-        &LidarDriver::startScan1,
-        &lidar,
-        std::ref(stopper),
-        std::ref(coordinates_queue),
-        std::ref(coordinates_mutex));
-
-    std::thread senderThread(
-        &Communication::sendLidarData,
-        &com,
-        std::ref(connection),
-        std::ref(coordinates_queue),
-        std::ref(coordinates_mutex),
-        std::ref(stopper));
 
     std::thread commandReceiverThread([&commands] {
         TCPClientContext commandClient;
@@ -136,13 +84,8 @@ int main() {
         }
     });
 
-    roverThread.detach();
     updateThread.detach();
-    scanThread.detach();
-    senderThread.detach();
     commandReceiverThread.join();
 
-    std::cout << "Closing" << std::endl;
-    rover.closeConnection();
 }
 

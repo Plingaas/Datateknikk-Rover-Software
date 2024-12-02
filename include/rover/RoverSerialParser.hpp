@@ -15,22 +15,22 @@
 namespace Rover {
 
     class SerialParser {
-    private:
-        std::vector<std::shared_ptr<SensorStreamService>> services;
-        std::mutex bufferMutex;
-        bool readToken1 = false;
-        bool readToken2 = false;
-        std::queue<std::vector<uint8_t>> queue;
-        std::vector<uint8_t> buffer{};
 
     public:
+
         SerialParser();
         void feed(const std::vector<uint8_t>& data);
         std::shared_ptr<SerialMessage> parse();
         std::vector<std::vector<float>> parseSensorData1(std::vector<uint8_t>& buffer);
         std::vector<std::vector<float>> parseSensorData2(std::vector<uint8_t>& buffer);
 
-        bool sensorDataAvailable();
+
+    private:
+        //SensorDataAvailableHandler sensor_data_available_handler;
+        std::vector<std::shared_ptr<SensorStreamService>> services;
+        std::mutex bufferMutex;
+        std::queue<std::vector<uint8_t>> queue;
+        std::vector<uint8_t> buffer{};
     };
 }
 #endif //ROVERSERIALPARSER_HPP

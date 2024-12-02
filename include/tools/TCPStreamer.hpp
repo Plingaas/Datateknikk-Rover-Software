@@ -37,14 +37,18 @@ public:
     bool sendPacket();
     void startStreaming();
     void setTimeout(long timeout_) {timeout = timeout_;};
+    void setPort(uint16_t port_) {port = port_;};
     void close();
+    void setName(std::string name_) {name = name_;};
 
 private:
+    void printMessage(std::string message);
+    std::string name;
     bool verbose;
     std::unique_ptr<simple_socket::TCPServer> server;
     std::unique_ptr<simple_socket::SimpleConnection> client;
-    std::queue<std::vector<uint8_t>> packets;
     std::mutex m;
+    std::queue<std::vector<uint8_t>> packets;
 
     uint16_t port;
 

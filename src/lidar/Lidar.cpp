@@ -3,12 +3,12 @@
 //
 #include "Lidar.hpp"
 
-Lidar::Lidar() {
+Lidar::Lidar(uint16_t TCPPort) {
     driver = std::make_unique<LidarDriver>();
-    streamer = std::make_unique<TCPStreamer>(9998, true);
+    streamer = std::make_unique<TCPStreamer>(TCPPort, true);
+    streamer->setName("Lidar");
 
-    streamer->setTimeout(1000);
-
+    // Serial handlers
     driver->setConnectHandler([this] {
         streamer->startStreaming();
     });
@@ -21,6 +21,7 @@ Lidar::Lidar() {
         streamer->addPacket(data);
     });
 
+    // Server handlers
     streamer->setDisconnectHandler([this]() {
        this->onClientDisconnect();
     });
@@ -33,9 +34,11 @@ Lidar::Lidar() {
         this->onClientReconnect();
     });
 
-    //std::vector<uint8_t> packet = { 0x01, 0x02, 0x03 };
-    //streamer->addPacket(packet);
-    streamer->startStreaming();
+}
+
+void Lidar::init() {
+    driver->stopScan();
+    driver->stopMotor();
 }
 
 void Lidar::onClientConnect() {

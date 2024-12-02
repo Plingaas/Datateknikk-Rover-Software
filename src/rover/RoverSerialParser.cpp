@@ -5,13 +5,7 @@
 #include "Rover.hpp"
 
 namespace Rover {
-    void printbuffer(std::vector<uint8_t> buffer) {
-        std::ostringstream oss;
-        for (uint8_t b : buffer) {
-            oss << "\\x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(b);
-        }
-        std::cout << oss.str() << std::endl;
-    }
+
     SerialParser::SerialParser() {
         // Initialize buffer
         buffer = std::vector<uint8_t>();
@@ -143,7 +137,6 @@ namespace Rover {
         sensorData.push_back(services[0]->parseAttributeBytesToFloats(buffer));
         sensorData.push_back(services[1]->parseAttributeBytesToFloats(buffer));
         sensorData.push_back(services[2]->parseAttributeBytesToFloats(buffer));
-        readToken1 = true;
         return sensorData;
     }
 
@@ -151,16 +144,7 @@ namespace Rover {
         std::vector<std::vector<float>> sensorData;
         sensorData.push_back(services[3]->parseAttributeBytesToFloats(buffer));
         sensorData.push_back(services[4]->parseAttributeBytesToFloats(buffer));
-        readToken2 = true;
         return sensorData;
     }
 
-    bool SerialParser::sensorDataAvailable() {
-        if (readToken1 && readToken2) {
-            readToken1 = false;
-            readToken2 = false;
-            return true;
-        }
-        return false;
-    }
 }

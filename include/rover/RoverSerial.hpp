@@ -14,26 +14,17 @@
 #include <utility>
 #include <variant>
 #include <atomic>
+#include <functional>
 
 namespace Rover {
     class RoverSerial {
-    private:
-        const uint8_t START_OF_PACKET = 0x8d;
-        const uint8_t END_OF_PACKET = 0xd8;
-        void addCommand(const std::vector<uint8_t>& command);
-
-        std::unique_ptr<serial::Serial> device;
-        std::thread serial_thread;
-        std::atomic<bool> connected;
-        std::queue<std::vector<uint8_t>> writeQueue;
-        std::queue<std::shared_ptr<SerialMessage>> responseQueue;
-        std::unique_ptr<SerialParser> parser;
-
-        void write();
-        void read();
-        void loopRW();
-
     public:
+        using NewDataHandler = std::function<void(std::vector<uint8_t>& data)>;
+
+        void setOnNewDataHandler(NewDataHandler handler) {
+            new_data_handler = std::move(handler);
+        }
+
         explicit RoverSerial();
 
         void open();
@@ -46,6 +37,24 @@ namespace Rover {
             const std::vector<VariantType> &inputs = std::vector<VariantType>(),
             const std::vector<VariantType> &outputs = std::vector<VariantType>());
 
+    private:
+
+        NewDataHandler new_data_handler;
+
+        const uint8_t START_OF_PACKET = 0x8d;
+        const uint8_t END_OF_PACKET = 0xd8;
+        void addCommand(const std::vector<uint8_t>& command);
+
+        std::thread serial_thread;
+        std::atomic<bool> connected;
+        std::queue<std::shared_ptr<SerialMessage>> responseQueue;
+        std::queue<std::vector<uint8_t>> writeQueue;
+        std::unique_ptr<serial::Serial> device;
+        std::unique_ptr<SerialParser> parser;
+
+        void write();
+        void read();
+        void loopRW();
     };
 }
 #endif //ROVERSERIAL_HPP

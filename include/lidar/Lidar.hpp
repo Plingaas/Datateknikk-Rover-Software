@@ -15,15 +15,15 @@ private:
     std::unique_ptr<TCPStreamer> streamer;
     std::queue<std::vector<std::pair<double, double>>> scan_frames;
 
-    uint16_t timeout;
-
     void onClientDisconnect();
     void onClientConnect();
     void onClientReconnect();
 
     void clearScanFrames();
 public:
-
-    Lidar();
+    void init();
+    void startTCPServer() {streamer->startStreaming();};
+    void setServerTimeout(long milliseconds) {streamer->setTimeout(milliseconds);};
+    Lidar(uint16_t TCPPort);
 };
 #endif //LIDAR_HPP

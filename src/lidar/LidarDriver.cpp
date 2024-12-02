@@ -68,21 +68,21 @@ void LidarDriver::startScan(std::queue<std::vector<std::pair<double,double>>>* c
         std::vector<uint8_t> startScan_bytes = checksum(startScan);
         device->write(startScan_bytes);
 
-        std::cout<<"Sending startScan"<<std::endl;
+        //std::cout<<"Sending startScan"<<std::endl;
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
         // Read the first packet from LiDAR
         std::vector<uint8_t> inputData;
-        std::cout << "Available: " << device->available() << std::endl;
+        //std::cout << "Available: " << device->available() << std::endl;
         while (device->available() < 7) {
-            std::cout << "Available: " << device->available() << std::endl;
+            //std::cout << "Available: " << device->available() << std::endl;
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
         device->read(inputData,7);
 
         // Ensure the vector has enough data to prevent out-of-range access, debugging stuff
 
-        std::cout << "Received inputData size: " << inputData.size() << std::endl;
+        //std::cout << "Received inputData size: " << inputData.size() << std::endl;
         for (const auto &byte : inputData) {
             std::cout << "0x" << std::hex << static_cast<int>(byte) << " ";
         }

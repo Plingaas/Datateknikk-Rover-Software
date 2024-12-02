@@ -7,8 +7,10 @@ namespace Rover {
     RoverSerial::RoverSerial() {
         device = std::make_unique<serial::Serial>("/dev/ttyTHS0", 115200);
         parser = std::make_unique<SerialParser>();
-        serial_thread = std::thread([this] { loopRW(); });
-        serial_thread.detach(); // Detach so main program does not stop.
+        serial_thread = std::thread([this] {
+            loopRW();
+        });
+        serial_thread.detach();
     }
 
 
@@ -59,9 +61,9 @@ namespace Rover {
             std::vector<uint8_t> data(bytesAvailable); // Create vector with size of bytesAvailable
             try {
                 device->read(data, bytesAvailable); // Fill buffer
-                parser->feed(data);
-                auto msg = parser->parse();
-                responseQueue.push(msg);
+                if (new_data_handler) {
+                    new_data_handler(data);
+                }
             } catch (std::exception& e) {
                 std::cout << e.what() << std::endl;
                 connected = device->isOpen();

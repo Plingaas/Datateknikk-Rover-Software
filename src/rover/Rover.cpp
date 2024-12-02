@@ -6,14 +6,69 @@
 
 namespace Rover {
 
-    Rover::Rover() {
+    Rover::Rover(uint16_t TCPPort) {
         device = std::make_unique<RoverSerial>();
         parser = std::make_unique<SerialParser>();
-        stateStreamer = std::make_unique<StateStreamer>(9996);
+        streamer = std::make_unique<TCPStreamer>(TCPPort, true);
+        streamer->setName("Rover");
+
+        // Serial handler
+        device->setOnNewDataHandler([this](std::vector<uint8_t>& data) {
+            this->onSerialDataReceived(data);
+        });
+
+
+        // Server handlers
+        streamer->setDisconnectHandler([this]() {
+           this->onClientDisconnect();
+        });
+
+        streamer->setConnectHandler([this]() {
+            this->onClientConnect();
+        });
+
+        streamer->setReconnectHandler([this] {
+            this->onClientReconnect();
+        });
     }
 
-    std::shared_ptr<Rover> Rover::create() {
-        return std::make_shared<Rover>();
+    void Rover::onClientConnect() {
+        std::cout << "Rover client connected." << std::endl;
+        startSerialSensorStream(33);
+    }
+
+    void Rover::onClientDisconnect() {
+        std::cout << "Rover client disconnected." << std::endl;
+        stopSensorStream();
+        stopDriving();
+        token1Received = false;
+        token2Received = false;
+    }
+
+    void Rover::onClientReconnect() {
+        std::cout << "Rover client reconnected." << std::endl;
+    }
+
+
+
+    void Rover::onSerialDataReceived(std::vector<uint8_t>& data) {
+        parser->feed(data);
+        auto msg = parser->parse();
+        processSerialData(msg);
+    }
+
+    void Rover::connectSerial() const {
+        if (!device->isConnected()) {
+            device->open();
+        }
+    }
+
+    void Rover::setServerTimeout(long milliseconds) const {
+        streamer->setTimeout(milliseconds);
+    }
+
+    void Rover::startTCPServer() const {
+        streamer->startStreaming();
     }
 
     void Rover::init() {
@@ -27,7 +82,7 @@ namespace Rover {
         device->sendCommand("WAKE");
     }
 
-    void Rover::stop() {
+    void Rover::stopDriving() {
         device->sendCommand("DRIVE_STOP");
         driving = false;
     }
@@ -74,7 +129,7 @@ namespace Rover {
     /*
      Commands rover to start streaming sensor data with period of ms specified.
      */
-    void Rover::startSensorStream(uint16_t period) {
+    void Rover::startSerialSensorStream(uint16_t period) {
 
         // Uglyyy, need to fix this but it works for now
         std::vector<VariantType> configInputs;
@@ -161,21 +216,22 @@ namespace Rover {
         return state;
     }
 
-    void Rover::update() {
-        if (device->hasUnreadResponse()) {
-            auto msg = device->collectResponse();
-            if (msg == nullptr) return;
-            //std::cout << "New response: DID: " << static_cast<int>(msg->header->did) << "  CID: " << static_cast<int>(msg->header->cid) << std::endl;
+    void Rover::processSerialData(std::shared_ptr<SerialMessage> msg) {
+        if (msg == nullptr) return;
+        //std::cout << "New response: DID: " << static_cast<int>(msg->header->did) << "  CID: " << static_cast<int>(msg->header->cid) << std::endl;
 
-            // Notification for XY position move success or not
-            if (msg->header->did == 22 && msg->header->cid == 58) {
-                std::cout << "REACHED XY LOCATION (SUCCESS: " << static_cast<int>(msg->body[0]) << ")" << std::endl;
-                driving = false;
-            }
+        // Notification for XY position move success or not
+        if (msg->header->did == 22 && msg->header->cid == 58) {
+            std::cout << "REACHED XY LOCATION (SUCCESS: " << static_cast<int>(msg->body[0]) << ")" << std::endl;
+            driving = false;
+        }
 
-            // Sensor data
-            if (msg->header->did == 24 && msg->header->cid == 61) {
-                updateSensorData(msg);
+        // Sensor data
+        if (msg->header->did == 24 && msg->header->cid == 61) {
+            updateSensorData(msg);
+            if (token1Received && token2Received) {
+                auto packet = getStateAsPacket();
+                streamer->addPacket(packet);
             }
         }
     }
@@ -189,11 +245,25 @@ namespace Rover {
             imu.setData(sensorData[0]);
             accelerometer.setData(sensorData[1]);
             gyroscope.setData(sensorData[2]);
+            token1Received = true;
         }
         if (token == 0x02) {
             auto sensorData = parser->parseSensorData2(msg->body);
             locator.setData(sensorData[0]);
             velocity.setData(sensorData[1]);
+            token2Received = true;
         }
+    }
+
+    std::vector<uint8_t> Rover::getStateAsPacket() {
+        auto data = getState();
+
+        std::vector<uint8_t> packet{};
+        for (int i = 12; i >= 0; i--) {
+            uint8_t temp[sizeof(float)];
+            std::memcpy(temp, &data[i], sizeof(float));
+            packet.insert(packet.begin(), temp, temp + sizeof(float));
+        }
+        return packet;
     }
 }
