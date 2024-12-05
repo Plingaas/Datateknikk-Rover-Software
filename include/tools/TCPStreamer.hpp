@@ -14,6 +14,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <atomic>
+#include <cstring>
 
 class TCPStreamer {
 
@@ -40,8 +41,10 @@ public:
     void setPort(uint16_t port_) {port = port_;};
     void close();
     void setName(std::string name_) {name = name_;};
+    void setSOF(std::vector<uint8_t>& buffer) {SOF_ = buffer;};
 
 private:
+    std::vector<uint8_t> SOF_;
     void printMessage(std::string message);
     std::string name;
     bool verbose;
@@ -53,10 +56,11 @@ private:
     uint16_t port;
 
     long timeout;
-    long time_of_disconnect;
     std::atomic<bool> connected;
 
-    long getCurrentTime();
+    void getCurrentTimeBytes(std::vector<uint8_t>& buffer);
+    uint64_t getCurrentTime();
+
     void waitForConnection();
 
     DisconnectHandler disconnect_handler;

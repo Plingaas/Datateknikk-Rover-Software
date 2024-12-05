@@ -10,78 +10,108 @@
 #include "simple_socket/TCPSocket.hpp"
 #include <queue>
 #include "CameraStreamer.hpp"
+//#include "CameraStreamer.hpp"
 
-int main() {
-    CameraStreamer cameraStreamer(1, 640, 480, 60);
-    cameraStreamer.setClient("10.24.41.131", 8553);
+
+
+
+
+int main(int argc, char** argv) {
+    signal(SIGPIPE, SIG_IGN);
+
+    CameraStreamer cameraStreamer(4, 416, 416, 30);
+    cameraStreamer.setClient("192.168.10.114", 8553);
     cameraStreamer.start();
 
     uint16_t roverTCPPort = 9996;
+    if (argc > 2) roverTCPPort = std::atoi(argv[2]);
     Rover::Rover rover(roverTCPPort);
-    rover.init();
     rover.startSerialSensorStream(33);
     rover.setServerTimeout(5000);
     rover.startTCPServer();
 
     uint16_t lidarTCPPort = 9998;
+    if (argc > 3) lidarTCPPort = std::atoi(argv[3]);
     Lidar lidar(lidarTCPPort);
     lidar.init();
     lidar.setServerTimeout(5000);
     lidar.startTCPServer();
 
-    std::queue<uint8_t> commands;
-    std::thread updateThread([&rover, &commands] {
+    std::queue<std::vector<uint8_t>> commands;
+    std::mutex m;
+    float speed = 0.3;
+    if (argc > 1) speed = std::atof(argv[1]);
+    std::thread updateThread([&rover, &commands, &m, &speed] {
         float heading = 0.0f;
-        float speed = 0.4f;
         while (true) {
-            if (commands.size() > 0) {
-                std::mutex m;
+            if (!commands.empty()) {
                 std::unique_lock<std::mutex> lock(m);
-                uint8_t command = commands.front();
+                auto commandBuffer = commands.front();
+                uint8_t command = commandBuffer[0];
                 commands.pop();
                 lock.unlock();
-                std::cout << command << std::endl;
-                if (command == 0x01) {
-                    speed = abs(speed);
-                    rover.driveWithYaw(speed, heading);
-                }
-                if (command == 0x02) {
-                    heading += 3;
-                    if (rover.driving) rover.driveWithYaw(speed, heading);
-                }
-                if (command == 0x03) {
-                    heading -= 3;
-                    if (rover.driving) rover.driveWithYaw(speed, heading);
-                }
-                if (command == 0x04) {
-                    speed = -abs(speed);
-                    rover.driveWithYaw(speed, heading);
-                }
+
                 if (command == 0x05) {
                     rover.stopDriving();
                 }
+                if (command == 0x01) {
+                    speed = abs(speed);
+                    //rover.driveWithYaw(speed, heading);
+                    rover.driveTank(0.2, 0.2);
+                }
+                if (command == 0x02) {
+                    //heading += speed*2;
+                    //if (rover.driving) rover.driveWithYaw(speed, heading);
+                    rover.driveTank(-0.2, 0.2);
+                }
+                if (command == 0x03) {
+                    //heading -= speed*2;
+                    //if (rover.driving) rover.driveWithYaw(speed, heading);
+                    rover.driveTank(0.2, -0.2);
+                }
+                if (command == 0x04) {
+                    speed = -abs(speed);
+                    //rover.driveWithYaw(speed, heading);
+                    rover.driveTank(-0.2, -0.2);
+                }
+                if (command == 0x06) {
+                    speed = abs(speed);
+                    float targetHeading;
+                    std::memcpy(&targetHeading, commandBuffer.data()+1, sizeof(float));
+                    std::cout << speed << " | " << targetHeading << std::endl;
+                    rover.driveWithYaw(speed, targetHeading);
+                }
+
             }
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
         }
     });
 
 
-    std::thread commandReceiverThread([&commands] {
+    std::thread commandReceiverThread([&commands, &m] {
         TCPClientContext commandClient;
-        std::string laptopIP("10.24.41.131");
-        std::string hotspotIP("10.42.0.143");
-        auto commandConnection = commandClient.connect(laptopIP, 5853);
-        std::cout << "Connected to command server." << std::endl;
-        float heading = 0.0f;
+
         while (true) {
-            std::vector<uint8_t> buffer(1);
-            commandConnection->read(buffer);
-            std::mutex m;
-            std::unique_lock<std::mutex> lock(m);
-            if (buffer[0] != 0x00) {
-                commands.push(buffer[0]);
+            auto commandConnection = commandClient.connect("192.168.10.114", 9876);
+            std::cout << "Connected to command server. Connected = "<<std::endl;
+	    if (!commandConnection){
+	        this_thread::sleep_for(chrono::milliseconds(100));
+	        continue;
+	    };
+
+            float heading = 0.0f;
+            while (true) {
+                std::vector<uint8_t> buffer(16);
+                int bytes = commandConnection->read(buffer);
+                if (bytes == -1) break;
+                std::cout << "Got command" << std::endl;
+                if (!buffer.empty()) {
+                    std::lock_guard<std::mutex> lock(m);
+                    commands.push(buffer);
+                }
             }
-            lock.unlock();
         }
+
     });
 
     updateThread.detach();

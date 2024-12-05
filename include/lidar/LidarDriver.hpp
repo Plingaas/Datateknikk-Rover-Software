@@ -27,25 +27,38 @@ public:
   }
 
   LidarDriver();
-  void stopScan();
-  void stopMotor();
 
-  void startScan(std::queue<std::vector<std::pair<double, double>>>* coordinates_queue);
-  void startMotorHalf();
-  void startMotorFull();
+  void start();
 
+  void stop();
   void close();
   void reset();
   ~LidarDriver() {stopScan(); stopMotor();}
+  void startMotorHalf();
+  void startMotorFull();
+
 
 private:
+  void stopScan();
+  void stopMotor();
+  void startScan();
+  void startExpressScan();
+  void calcAndAddPoints(std::vector<std::pair<float, float>>& points,const std::vector<float>& dist1, const std::vector<float>& dist2,
+                        const std::vector<float>& delta1, const std::vector<float>& delta2,
+                        float previousAngle, float refAngle);
+  std::tuple<uint16_t, uint16_t, int> readCabin1or3(uint8_t data);
+  uint16_t readCabin2or4(uint8_t data);
+  std::pair<uint16_t, uint16_t> readCabin5(uint8_t data);
+  float calcDist(uint16_t distP1, uint16_t distP2);
+  float calcDelta(uint16_t deltaP1, uint16_t deltaP2, int deltaSign);
+
   ConnectHandler connect_handler;
   CloseHandler close_handler;
   NewFrameHandler new_frame_handler;
 
   bool scanning;
   std::unique_ptr<serial::Serial> device;
-  std::vector<uint8_t> serializeLidarData(const std::vector<std::pair<double, double>>& data);
+  void serializeLidarData(const std::vector<std::pair<float, float>>& data, std::vector<uint8_t>& buffer);
   const std::vector<uint8_t> checksum(const std::vector<unsigned char>& bytes);
 };
 

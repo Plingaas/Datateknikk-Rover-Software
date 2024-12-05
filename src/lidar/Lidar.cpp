@@ -5,55 +5,38 @@
 
 Lidar::Lidar(uint16_t TCPPort) {
     driver = std::make_unique<LidarDriver>();
+    // Show that rover is ready to connect
+    driver->startMotorHalf();
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    driver->stop();
+
     streamer = std::make_unique<TCPStreamer>(TCPPort, true);
     streamer->setName("Lidar");
 
     // Serial handlers
-    driver->setConnectHandler([this] {
-        streamer->startStreaming();
-    });
-
-    driver->setCloseHandler([this] {
-        streamer->close();
-    });
-
-    driver->setNewFrameHandler([this](std::vector<uint8_t>& data) {
-        streamer->addPacket(data);
-    });
+    driver->setConnectHandler([this] {streamer->startStreaming();});
+    driver->setCloseHandler([this] {streamer->close();});
+    driver->setNewFrameHandler([this](std::vector<uint8_t>& data) {streamer->addPacket(data);});
 
     // Server handlers
-    streamer->setDisconnectHandler([this]() {
-       this->onClientDisconnect();
-    });
-
-    streamer->setConnectHandler([this]() {
-        this->onClientConnect();
-    });
-
-    streamer->setReconnectHandler([this] {
-        this->onClientReconnect();
-    });
+    streamer->setDisconnectHandler([this]() {this->onClientDisconnect();});
+    streamer->setConnectHandler([this]() {this->onClientConnect();});
+    streamer->setReconnectHandler([this] {this->onClientReconnect();});
 
 }
 
 void Lidar::init() {
-    driver->stopScan();
-    driver->stopMotor();
+    driver->stop();
 }
 
 void Lidar::onClientConnect() {
-    std::cout << "Lidar client connected." << std::endl;
-    driver->startMotorHalf();
-    driver->startScan(&scan_frames);
+    driver->start();
 }
 void Lidar::onClientDisconnect() {
-    std::cout << "Lidar client disconnected." << std::endl;
-    driver->stopScan();
-    driver->stopMotor();
+    driver->stop();
     clearScanFrames();
 }
 void Lidar::onClientReconnect() {
-    std::cout << "Lidar client reconnected." << std::endl;
 }
 
 void Lidar::clearScanFrames() {
@@ -61,3 +44,5 @@ void Lidar::clearScanFrames() {
         scan_frames.pop();
     }
 }
+
+

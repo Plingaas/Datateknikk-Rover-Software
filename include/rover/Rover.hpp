@@ -55,13 +55,13 @@ namespace Rover {
         void closeConnection();
         void processSerialData(std::shared_ptr<SerialMessage> msg);
         const float* getState();
-
+        void driveTank(const float& left_velocity, const float& right_velocity);
         [[nodiscard]] float getHeading() const {return this->imu.yaw;}
 
     private:
         std::vector<uint8_t> getStateAsPacket();
         void onSerialDataReceived(std::vector<uint8_t>& data);
-        void driveTank(const float& left_velocity, const float& right_velocity);
+
         void updateSensorData(std::shared_ptr<SerialMessage> msg);
 
         std::queue<std::vector<float>> stateQueue;

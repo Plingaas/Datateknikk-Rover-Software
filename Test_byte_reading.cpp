@@ -1,62 +1,22 @@
-#include "lidarDriver.hpp"
-#include <iostream>
-#include <thread>
-#include <atomic>
-
+#include "Lidar.hpp"
+#include "Rover.hpp"
+#include "signal.h"
 int main() {
+    signal(SIGPIPE, SIG_IGN); // Avoid socket->write closing program. Handlers take care of errors.
+    signal(SIGABRT, SIG_IGN);
 
-    LidarDriver driver;
+    Rover::Rover rover(9996);
+    rover.init();
+    rover.setServerTimeout(5000);
+    rover.startTCPServer();
 
-    std::atomic<bool> stopper(false);
+    uint16_t lidarTCPPort = 9998;
+    Lidar lidar(lidarTCPPort);
+    lidar.init();
+    lidar.setServerTimeout(5000);
+    lidar.startTCPServer();
 
-    serial::Serial serial("/dev/ttyUSB0",256000);
-
-    serial.flush();
-    serial.setDTR(false);
-
-    if (!serial.isOpen()) {
-        std::cerr << "Failed to open COM3\n";
-        return 1;
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
-
-    std::thread controlThread([&stopper]() {
-    std::cout << "Press Enter to stop scanning..." << std::endl;
-    std::cin.get(); // Waits for the user to press Enter
-    stopper = true;
-     });
-
-    driver.stopScan(serial);
-    driver.stopMotor(serial);
-
-    std::this_thread::sleep_for(std::chrono::seconds(3));
-    serial.flush();
-    driver.startMotorFull(serial);
-    //Give the motor a few seconds to reach the desired speed
-    std::this_thread::sleep_for(std::chrono::seconds(3));
-
-    try {
-
-        driver.startScan2(serial,stopper);
-
-    } catch (const std::runtime_error& e) {
-        std::cerr << "Caught an exception: " << e.what() << std::endl;
-    }
-    catch (...) {
-        std::cerr << "An error occurred during the scan process." << std::endl;
-    }
-
-
-    driver.stopScan(serial);
-    driver.stopMotor(serial);
-
-
-    if (controlThread.joinable()) {
-        controlThread.join();
-    }
-
-    serial.close();
-
-    return 0;
-
-
 }

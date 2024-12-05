@@ -11,8 +11,10 @@ CameraStreamer::CameraStreamer(int mode_, int w_, int h_, int fps_, int flip_met
     outh = h_;
     flip_method = flip_method_;
     server = std::make_unique<simple_socket::UDPSocket>(serverPort);
-
+    frameIndex = 0;
     streaming = false;
+
+    yolo = std::make_unique<Yolo>();
 }
 
 void CameraStreamer::setCameraMode(int mode) {
@@ -141,6 +143,16 @@ void CameraStreamer::start() {
        while (camera.isOpened()) {
            try {
                updateFrame();
+               if (++frameIndex == 10) {
+                   if (yolo) {
+                       yolo->detect(frame);
+                   }
+                   frameIndex = 0;
+               }
+               if (yolo) {
+                   yolo->drawPred(frame);
+               }
+
                sendFrame();
            } catch (cv::Exception& e) {
                std::cout << e.what() << std::endl;

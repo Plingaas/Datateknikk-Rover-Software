@@ -17,6 +17,7 @@ set(privateHeaders
     "rover/SerialEnum.hpp"
     "lidar/LidarDriver.hpp"
     "lidar/communication.hpp"
+    "camera/Yolo.hpp"
     "tools/TCPStreamer.hpp"
 )
 
@@ -32,6 +33,7 @@ set(sources
     "lidar/LidarDriver.cpp"
     "lidar/communication.cpp"
     "camera/CameraStreamer.cpp"
+    "camera/Yolo.cpp"
     "tools/TCPStreamer.cpp"
 )
 
@@ -40,7 +42,8 @@ foreach (header IN LISTS publicHeaders)
     list(APPEND publicHeadersFull "${publicHeaderDir}/${header}")
 endforeach ()
 
-set(privateHeadersFull)
+set(privateHeadersFull
+        camera/Yolo.cpp)
 foreach (header IN LISTS privateHeaders)
     list(APPEND privateHeadersFull "${publicHeaderDir}/${header}")
 endforeach ()

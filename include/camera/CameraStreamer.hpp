@@ -7,6 +7,7 @@
 #include "simple_socket/UDPSocket.hpp"
 #include <opencv2/opencv.hpp>
 #include <future>
+#include "Yolo.hpp"
 #include <thread>
 #define BUFFER_SIZE 1024
 #define METADATA_SIZE 1
@@ -35,6 +36,8 @@ public:
     void stop();
 
 private:
+    std::unique_ptr<Yolo> yolo;
+    int frameIndex;
 
     std::unique_ptr<simple_socket::UDPSocket> server;
     std::string clientIP;

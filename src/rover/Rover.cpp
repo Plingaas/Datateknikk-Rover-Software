@@ -13,34 +13,26 @@ namespace Rover {
         streamer->setName("Rover");
 
         // Serial handler
-        device->setOnNewDataHandler([this](std::vector<uint8_t>& data) {
-            this->onSerialDataReceived(data);
-        });
+        device->setOnNewDataHandler([this](std::vector<uint8_t>& data) {this->onSerialDataReceived(data);});
 
 
         // Server handlers
-        streamer->setDisconnectHandler([this]() {
-           this->onClientDisconnect();
-        });
-
-        streamer->setConnectHandler([this]() {
-            this->onClientConnect();
-        });
-
-        streamer->setReconnectHandler([this] {
-            this->onClientReconnect();
-        });
+        streamer->setDisconnectHandler([this]() {this->onClientDisconnect();});
+        streamer->setConnectHandler([this]() {this->onClientConnect();});
+        streamer->setReconnectHandler([this] {this->onClientReconnect();});
     }
 
     void Rover::onClientConnect() {
         std::cout << "Rover client connected." << std::endl;
-        startSerialSensorStream(33);
+        init();
     }
 
     void Rover::onClientDisconnect() {
         std::cout << "Rover client disconnected." << std::endl;
         stopSensorStream();
         stopDriving();
+        resetYaw();
+        resetPosition();
         token1Received = false;
         token2Received = false;
     }
@@ -77,6 +69,7 @@ namespace Rover {
         clearSensorStream();
         resetYaw();
         resetPosition();
+        startSerialSensorStream(33);
     }
     void Rover::wake() {
         device->sendCommand("WAKE");
@@ -176,6 +169,14 @@ namespace Rover {
         device->sendCommand("START_SENSOR_STREAM_2", inputs);
     }
 
+    void Rover::driveTank(const float& left_velocity, const float& right_velocity) {
+        std::vector<VariantType> inputs{};
+        inputs.emplace_back(left_velocity);
+        inputs.emplace_back(right_velocity);
+
+        device->sendCommand("DRIVE_TANK", inputs);
+        driving = true;
+    }
     void Rover::stopSensorStream() {
         device->sendCommand("STOP_SENSOR_STREAM_1"); // Stops Nordic processor
         device->sendCommand("STOP_SENSOR_STREAM_2"); // Stops ST processor

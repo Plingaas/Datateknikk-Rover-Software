@@ -18,8 +18,8 @@ private:
     void onClientDisconnect();
     void onClientConnect();
     void onClientReconnect();
-
     void clearScanFrames();
+
 public:
     void init();
     void startTCPServer() {streamer->startStreaming();};
