@@ -20,7 +20,7 @@ int main(int argc, char** argv) {
     signal(SIGPIPE, SIG_IGN);
 
     CameraStreamer cameraStreamer(4, 416, 416, 30);
-    cameraStreamer.setClient("192.168.10.114", 8553);
+    cameraStreamer.setClient("10.24.41.131", 8553);
     cameraStreamer.start();
 
     uint16_t roverTCPPort = 9996;
@@ -92,7 +92,7 @@ int main(int argc, char** argv) {
         TCPClientContext commandClient;
 
         while (true) {
-            auto commandConnection = commandClient.connect("192.168.10.114", 9876);
+            auto commandConnection = commandClient.connect("10.24.41.131", 9876);
             std::cout << "Connected to command server. Connected = "<<std::endl;
 	    if (!commandConnection){
 	        this_thread::sleep_for(chrono::milliseconds(100));
